@@ -202,22 +202,25 @@ class Rules {
 
 	/** 卖出股票 */
 	static void sell(int fanBaoIndex, Stock s, int transDayIndex) {
-		if (s.stockTransMulitMap.containsKey(fanBaoIndex)) {
-			Collection<StockTrans> transList = s.stockTransMulitMap.get(fanBaoIndex);
-			for (StockTrans st : transList) {
-				// 没有卖出记录并且满足至少T+1才能卖出
-				if (st.tdSell == null && transDayIndex > st.tdBuy.tansDayIndex) {
-					// 如果前一天跌停，今早开盘及时卖出
-					if (isStockBottomLimit(s.thLastest[transDayIndex - 1])) {
-						st.tdSell = Lists.newArrayList(
-								new TransDetail(s.thLastest[transDayIndex].openingPrice, 100, transDayIndex, "跌停后卖出"));
+		// 不涨停的时候才考虑卖出
+		if (!isStockTopLimit(s.thLastest[transDayIndex])) {
+			if (s.stockTransMulitMap.containsKey(fanBaoIndex)) {
+				Collection<StockTrans> transList = s.stockTransMulitMap.get(fanBaoIndex);
+				for (StockTrans st : transList) {
+					// 没有卖出记录并且满足至少T+1才能卖出
+					if (st.tdSell == null && transDayIndex > st.tdBuy.tansDayIndex) {
+						// 如果前一天跌停，今早开盘及时卖出
+						if (isStockBottomLimit(s.thLastest[transDayIndex - 1])) {
+							st.tdSell = Lists.newArrayList(new TransDetail(s.thLastest[transDayIndex].openingPrice, 100,
+									transDayIndex, "跌停后卖出"));
 
-					}
-					// （成交日+1 日收盘价）/ 成交日收盘价 < 1.0996 收盘时卖出
-					else if (s.thLastest[transDayIndex].closingPrice < s.thLastest[transDayIndex - 1].closingPrice
-							* 1.0996) {
-						st.tdSell = Lists.newArrayList(
-								new TransDetail(s.thLastest[transDayIndex].closingPrice, 100, transDayIndex, "卖出"));
+						}
+						// （成交日+1 日收盘价）/ 成交日收盘价 < 1.0996 收盘时卖出
+						else if (s.thLastest[transDayIndex].closingPrice < s.thLastest[transDayIndex - 1].closingPrice
+								* 1.0996) {
+							st.tdSell = Lists.newArrayList(
+									new TransDetail(s.thLastest[transDayIndex].closingPrice, 100, transDayIndex, "卖出"));
+						}
 					}
 				}
 			}
@@ -267,19 +270,14 @@ class Rules {
 							}
 							// 反包日之后的两个交易日起才可以卖出
 							if (transDayIndex >= fanBaoIndex + 2) {
-								// 不涨停的时候才考虑卖出
-								if (!isStockTopLimit(s.thLastest[transDayIndex])) {
-									// 卖出逻辑
-									sell(fanBaoIndex, s, transDayIndex);
-								}
+								// 卖出逻辑
+								sell(fanBaoIndex, s, transDayIndex);
 							}
 						}
 					}
 				}
-				// 不涨停的时候才考虑卖出
-				if (fanBaoIndex > -1 && !isStockTopLimit(s.thLastest[i])) {
-					sell(fanBaoIndex, s, i);
-				}
+				// 卖出逻辑
+				sell(fanBaoIndex, s, i);
 			}
 		}
 	}
