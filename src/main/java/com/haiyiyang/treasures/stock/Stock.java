@@ -205,7 +205,8 @@ class Rules {
 		if (s.stockTransMulitMap.containsKey(fanBaoIndex)) {
 			Collection<StockTrans> transList = s.stockTransMulitMap.get(fanBaoIndex);
 			for (StockTrans st : transList) {
-				if (st.tdSell == null) {
+				// 没有卖出记录并且满足至少T+1才能卖出
+				if (st.tdSell == null && transDayIndex > st.tdBuy.tansDayIndex) {
 					// 如果前一天跌停，今早开盘及时卖出
 					if (isStockBottomLimit(s.thLastest[transDayIndex - 1])) {
 						st.tdSell = Lists.newArrayList(
@@ -247,14 +248,14 @@ class Rules {
 			int fanBaoIndex = -1;
 			int l = s.thLastest.length - 2;// 预留最小2个交易日用于买入和卖出
 			for (int i = 0; i < l; i++) {
-				// 不处理3个可能成交的日
+				// 不处理3个可能成交的交易日
 				if (fanBaoIndex > -1 && i <= fanBaoIndex + 3) {
 					continue;
 				}
 				if (meetFanBaoRules(s.thLastest[i], s.thLastest[i + 1])) {
 					fanBaoIndex = i + 1;
 					double buyPrice = caculateBuyPrice(s.thLastest[i], s.thLastest[i + 1]);
-					// 处理3个可能成交的日
+					// 处理3个可能成交的交易日
 					for (int j = 1; j <= 3; j++) {
 						int transDayIndex = i + 1 + j;
 						if (meetBuyRule(s.thLastest[transDayIndex], buyPrice)) {
@@ -272,6 +273,10 @@ class Rules {
 							}
 						}
 					}
+				}
+				// 不涨停的时候才考虑卖出
+				if (fanBaoIndex > -1 && !isStockTopLimit(s.thLastest[i])) {
+					sell(fanBaoIndex, s, i);
 				}
 			}
 		}
