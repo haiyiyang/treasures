@@ -244,9 +244,10 @@ class Rules {
 			return;
 		}
 
-		if (s.thLastest.length >= 6) {
+		/** 1调整日，2反包日，3可能的成交日，4可能的成交日B,5可能的成交日 */
+		if (s.thLastest.length >= 5) {
 			int fanBaoIndex = -1;
-			int l = s.thLastest.length - 2;// 预留最小2个交易日用于买入和卖出
+			int l = s.thLastest.length - 2;// 预留最小2个交易日用于买入和卖出(最小完整交易)
 			for (int i = 0; i < l; i++) {
 				// 不处理3个可能成交的交易日
 				if (fanBaoIndex > -1 && i <= fanBaoIndex + 3) {
@@ -268,6 +269,7 @@ class Rules {
 							if (transDayIndex >= fanBaoIndex + 2) {
 								// 不涨停的时候才考虑卖出
 								if (!isStockTopLimit(s.thLastest[transDayIndex])) {
+									// 卖出逻辑
 									sell(fanBaoIndex, s, transDayIndex);
 								}
 							}
