@@ -8,7 +8,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 
-// 股票
+/** 股票 */
 class Stock {
 	String code; // 股票代码
 	String pinyinCode; // 股票拼音代码
@@ -21,18 +21,13 @@ class Stock {
 	Multimap<Integer, StockTrans> stockTransMulitMap = ArrayListMultimap.create(); // 模拟成交数据
 }
 
+/** 交易明细 */
 class TransDetail {
 
 	double price; // 交易价格
 	int quantity; // 交易数量
 	int tansDayIndex; // 交易日期Index
 	String comment; // 备注（如交易原因）
-
-	TransDetail(double price, int quantity, int tansDayIndex) {
-		this.price = price;
-		this.quantity = quantity;
-		this.tansDayIndex = tansDayIndex;
-	}
 
 	TransDetail(double price, int quantity, int tansDayIndex, String comment) {
 		this.price = price;
@@ -42,6 +37,7 @@ class TransDetail {
 	}
 }
 
+/** 股票买卖交易 */
 class StockTrans {
 	TransDetail tdBuy;// 买入详情
 	List<TransDetail> tdSell; // 卖出详情
@@ -51,7 +47,7 @@ class StockTrans {
 	}
 }
 
-// 交易数据
+/** 历史交易数据 */
 class TransHistory {
 	Double openingPrice; // 开盘价
 	Double closingPrice; // 收盘价
@@ -61,6 +57,7 @@ class TransHistory {
 	Double volumeOfClosingPriceAndAbove; // 在成交价及以上的价格的成交数量
 }
 
+/** 交易规则 */
 class Rules {
 
 	/** 排除的特定行业 */
@@ -196,7 +193,7 @@ class Rules {
 	/** 买入股票及补仓 */
 	static Boolean buyAndReplenish(int fanBaoIndex, Stock s, double buyPrice, int transDayIndex) {
 		if (!s.stockTransMulitMap.containsKey(fanBaoIndex)) {
-			s.stockTransMulitMap.put(fanBaoIndex, new StockTrans(new TransDetail(buyPrice, 100, transDayIndex)));
+			s.stockTransMulitMap.put(fanBaoIndex, new StockTrans(new TransDetail(buyPrice, 100, transDayIndex, "买入")));
 			// 补仓逻辑
 			return replenish(fanBaoIndex, s, buyPrice, transDayIndex, false);
 		}
@@ -212,14 +209,14 @@ class Rules {
 					// 如果前一天跌停，今早开盘及时卖出
 					if (isStockBottomLimit(s.thLastest[transDayIndex - 1])) {
 						st.tdSell = Lists.newArrayList(
-								new TransDetail(s.thLastest[transDayIndex].openingPrice, 100, transDayIndex));
+								new TransDetail(s.thLastest[transDayIndex].openingPrice, 100, transDayIndex, "跌停后卖出"));
 
 					}
 					// （成交日+1 日收盘价）/ 成交日收盘价 < 1.0996 收盘时卖出
 					else if (s.thLastest[transDayIndex].closingPrice < s.thLastest[transDayIndex - 1].closingPrice
 							* 1.0996) {
 						st.tdSell = Lists.newArrayList(
-								new TransDetail(s.thLastest[transDayIndex].closingPrice, 100, transDayIndex));
+								new TransDetail(s.thLastest[transDayIndex].closingPrice, 100, transDayIndex, "卖出"));
 					}
 				}
 			}
