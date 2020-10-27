@@ -70,7 +70,7 @@ class Rules {
 
 	/** 判断是否在跌停的价格区间范围内 */
 	static boolean isWinthinBottomLimit(double priceRange) {
-		return priceRange <= 0.9d;
+		return priceRange <= 0.904d;
 	}
 
 	/** 基本判断 */
