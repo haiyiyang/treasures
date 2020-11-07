@@ -7,7 +7,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Lists;
@@ -24,11 +26,19 @@ class Stock {
 	boolean isHot; // 是否热点
 	TransHistory[] thLastest; // 历史交易数据
 	Multimap<Integer, StockTrans> stockTransMulitMap = ArrayListMultimap.create(); // 模拟成交数据
+	static List<FileIndex> fileIndexList = new ArrayList<FileIndex>(3000); // File Index
+	static Multimap<String, TransHistory> transHistoryListMulitMap = ArrayListMultimap.create(); // 所有历史数据
 
-	private static List<FileIndex> fileIndexList;
-	private static List<TransHistory> transHistoryList;
+	void mockBasicData() {
+		this.categroy = "医药";
+		this.peRatio = 1d;
+		this.ttm = 1d;
+		this.marketValue = 100000000d;
+		this.isHot = true;
+	}
 
 	static void loadData(String fileName) {
+		System.out.println(fileName);
 		File file = new File(fileName);
 		FileInputStream in = null;
 		DataInputStream dis = null;
@@ -40,8 +50,7 @@ class Stock {
 				dis.read(bs, 0, 4);
 				int dataLength = Util.bytesToInt(bs, 0);
 				System.out.println("data length:" + dataLength);
-				fileIndexList = new ArrayList<FileIndex>(dataLength);
-				transHistoryList = new ArrayList<TransHistory>(dataLength * 22);
+				fileIndexList.clear();
 				for (int i = 0; i < dataLength; i++) {
 					dis.read(bs, 0, 12);
 					String stockCode = new String(bs, 0, 12);
@@ -54,16 +63,13 @@ class Stock {
 				for (FileIndex fi : fileIndexList) {
 					long size = fi.size;
 					for (int j = 0; j < size; j++) {
-						TransHistory dayPriceSummary = new TransHistory();
-						transHistoryList.add(dayPriceSummary);
+						TransHistory transHistory = new TransHistory();
+						transHistoryListMulitMap.put(fi.code, transHistory);
 						for (int k = 0; k < 9; k++) {
 							dis.read(bs, 0, k < 7 ? 4 : 8);
-							dayPriceSummary.setValues(bs, k);
+							transHistory.setValues(bs, k);
 						}
 					}
-				}
-				for (TransHistory transHistory : transHistoryList) {
-					System.out.println("transHistory:" + transHistory);
 				}
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -87,7 +93,30 @@ class Stock {
 	}
 
 	public static void main(String[] args) {
-		loadData("/Users/yuguangjia/study/201401.DAT");
+		Stock stock = new Stock();
+		stock.mockBasicData();
+		for (int i = 2014; i < 2015; i++) {
+			for (int j = 1; j < 13; j++) {
+				if (i == 2020 && j > 10) {
+					System.out.println("----------end----------");
+					break;
+				}
+				String filePath = String.format("/Users/yuguangjia/study/DayData/%1$d%2$02d.DAT", i, j);
+				loadData(filePath);
+			}
+		}
+		Set<String> keys = transHistoryListMulitMap.keySet();
+		for (String key : keys) {
+			stock.code = key;
+			Collection<TransHistory> transHistorys = transHistoryListMulitMap.get(key);
+			stock.thLastest = new TransHistory[transHistorys.size()];
+			int k = 0;
+			for (Iterator<TransHistory> it = transHistorys.iterator(); it.hasNext(); k++) {
+				stock.thLastest[k] = it.next();
+			}
+			Rules.mockStockTrans(stock);
+			System.out.println("stock:" + stock.stockTransMulitMap.size());
+		}
 	}
 }
 
@@ -105,6 +134,13 @@ class TransDetail {
 		this.tansDayIndex = tansDayIndex;
 		this.comment = comment;
 	}
+
+	@Override
+	public String toString() {
+		return "TransDetail [price=" + price + ", quantity=" + quantity + ", tansDayIndex=" + tansDayIndex
+				+ ", comment=" + comment + "]";
+	}
+
 }
 
 /** 股票买卖交易 */
@@ -115,6 +151,12 @@ class StockTrans {
 	StockTrans(TransDetail tdBuy) {
 		this.tdBuy = tdBuy;
 	}
+
+	@Override
+	public String toString() {
+		return "StockTrans [tdBuy=" + tdBuy + ", tdSell=" + tdSell + "]";
+	}
+
 }
 
 /** 历史交易数据 */
@@ -203,7 +245,7 @@ class Rules {
 	static boolean meetThefundamentals(Stock s) {
 		return s.peRatio > 0 // 市盈率大于0
 				&& s.ttm > 0 // 近12个月市盈率
-				&& s.marketValue < 500 * 10000 * 10000 // 市值小于500亿
+				&& s.marketValue < (500d * 10000d * 10000d) // 市值小于500亿
 				&& !Rules.ExcludedCategroys.contains(s.categroy) // 不在排除的行业内
 				&& s.thLastest.length >= 4; // 已经存在4天的交易数据（用于排除才上市不到4天的股票）
 	}
@@ -363,9 +405,7 @@ class Rules {
 		return false;
 	}
 
-	public static void main(String[] args) {
-		Stock s = new Stock();
-		// TODO 初始化股票数据
+	static void mockStockTrans(Stock s) {
 
 		// 判断某只股票是否满足基本面要求
 		if (!meetThefundamentals(s)) {
