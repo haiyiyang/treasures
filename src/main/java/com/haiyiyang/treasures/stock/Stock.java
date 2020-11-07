@@ -110,6 +110,17 @@ class Stock {
 			stock.thLastest = tempTransHistoryList.toArray(new TransHistory[tempTransHistoryList.size()]);
 			stock.code = key;
 			Rules.mockStockTrans(stock);
+			if (stock.stockTransMulitMap.size() > 0) {
+				Set<Integer> fanbaoIndexSet = stock.stockTransMulitMap.keySet();
+				for (int index : fanbaoIndexSet) {
+					System.out.println(String.format("stock.code:%1$s, fanbaoIndex:%2$d", stock.code, index));
+					int maxLength = index + 3 > stock.thLastest.length ? stock.thLastest.length : index + 3;
+					for (int i = index - 3; i < maxLength; i++) {
+						System.out.println(stock.thLastest[i]);
+					}
+					System.out.println(stock.stockTransMulitMap.get(index));
+				}
+			}
 		}
 		System.out.println("==========end mock==============");
 	}
@@ -117,7 +128,7 @@ class Stock {
 	public static void main(String[] args) {
 		Stock stock = new Stock();
 		stock.mockBasicData();
-		for (int i = 2014; i < 2021; i++) {
+		for (int i = 2014; i < 2017; i++) {
 			for (int j = 1; j < 13; j++) {
 				if (i == 2020 && j > 10) {
 					break;
@@ -127,16 +138,6 @@ class Stock {
 			System.out.println("load data of year:" + i + " done.");
 		}
 		startMock(stock);
-		if (stock.stockTransMulitMap.size() > 0) {
-			Set<Integer> fanbaoIndexSet = stock.stockTransMulitMap.keySet();
-			for (int index : fanbaoIndexSet) {
-				System.out.println(String.format("stock.code:%1$s, fanbaoIndex:%2$d", stock.code, index));
-				int maxLength = index + 3 > stock.thLastest.length ? stock.thLastest.length : index + 3;
-				for (int i = index - 3; i < maxLength; i++) {
-					System.out.println(stock.thLastest[i]);
-				}
-			}
-		}
 		System.out.println("----------end----------");
 	}
 }
@@ -385,14 +386,14 @@ class Rules {
 	}
 
 	/** 买入股票及补仓 */
-	static Boolean buyAndReplenish(int fanBaoIndex, Stock s, double buyPrice, int transDayIndex) {
+	static int buyAndReplenish(int fanBaoIndex, Stock s, double buyPrice, int transDayIndex) {
 		if (!s.stockTransMulitMap.containsKey(fanBaoIndex)) {
 			s.stockTransMulitMap.put(fanBaoIndex,
 					new StockTrans(s.code, new TransDetail(buyPrice, 100, transDayIndex, "买入")));
 			// 补仓逻辑
-			return replenish(fanBaoIndex, s, buyPrice, transDayIndex, false);
+			replenish(fanBaoIndex, s, buyPrice, transDayIndex, 1);
 		}
-		return false;
+		return s.stockTransMulitMap.get(fanBaoIndex).size();
 	}
 
 	/** 卖出股票 */
@@ -422,14 +423,13 @@ class Rules {
 	}
 
 	/** 股票补仓 */
-	static boolean replenish(int fanBaoIndex, Stock s, double buyPrice, int transDayIndex, boolean hasBucang) {
-		double rPrice = hasBucang ? buyPrice * 0.88 : buyPrice * 0.95;
+	static int replenish(int fanBaoIndex, Stock s, double buyPrice, int transDayIndex, int buyCount) {
+		double rPrice = buyCount > 1 ? buyPrice * 0.88 : buyPrice * 0.95;
 		if (s.thLastest[transDayIndex].lowPx < rPrice) {
 			s.stockTransMulitMap.put(fanBaoIndex, new StockTrans(s.code,
-					new TransDetail(rPrice, 100, transDayIndex, "补仓" + (hasBucang ? "2" : "1"))));
-			return true;
+					new TransDetail(rPrice, 100, transDayIndex, "补仓" + (buyCount > 1 ? "2" : "1"))));
 		}
-		return false;
+		return s.stockTransMulitMap.get(fanBaoIndex).size();
 	}
 
 	static void mockStockTrans(Stock s) {
@@ -460,30 +460,27 @@ class Rules {
 				}
 				if (meetFanBaoRules(s, thIndex)) {
 					fanBaoIndex = thIndex + 1;
-					double buyPrice = caculateBuyPrice(s.thLastest[thIndex], s.thLastest[thIndex + 1]);
+					double buyPrice = caculateBuyPrice(s.thLastest[thIndex], s.thLastest[fanBaoIndex]);
 					// 处理3个可能成交的交易日
 					for (int j = 1; j <= 3; j++) {
-						int transDayIndex = thIndex + 1 + j;
-						// 历史数据中有重复数据, 数据清洗后有null值
-						if (transDayIndex >= thLastestLength || s.thLastest[transDayIndex] == null) {
-							break;
-						}
-						if (meetBuyRule(s.thLastest[transDayIndex], buyPrice)) {
-							boolean hasBucang = buyAndReplenish(fanBaoIndex, s, buyPrice, transDayIndex);
-							if (transDayIndex == fanBaoIndex + 2) {
-								// 补仓逻辑
-								replenish(fanBaoIndex, s, buyPrice, transDayIndex, hasBucang);
-							}
-							// 反包日之后的两个交易日起才可以卖出
-							if (transDayIndex >= fanBaoIndex + 2) {
-								// 卖出逻辑
-								sell(fanBaoIndex, s, transDayIndex);
+						int transDayIndex = fanBaoIndex + j;
+						if (transDayIndex < thLastestLength) {
+							if (meetBuyRule(s.thLastest[transDayIndex], buyPrice)) {
+								int buyCount = buyAndReplenish(fanBaoIndex, s, buyPrice, transDayIndex);
+								if (buyCount > 0 && buyCount < 3) {
+									// 补仓逻辑
+									replenish(fanBaoIndex, s, buyPrice, transDayIndex, buyCount);
+								}
+								if (buyCount > 0) {
+									// 卖出逻辑
+									sell(fanBaoIndex, s, transDayIndex);
+								}
 							}
 						}
 					}
 					fanBaoIndex = -1;
 				}
-				if (thIndex > 2) {
+				if (thIndex > 4) {
 					// 卖出逻辑
 					sell(fanBaoIndex, s, thIndex);
 				}
