@@ -481,6 +481,7 @@ class Rules {
 							}
 						}
 					}
+					fanBaoIndex = -1;
 				}
 				if (thIndex > 2) {
 					// 卖出逻辑
