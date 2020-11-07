@@ -1,9 +1,14 @@
 package com.haiyiyang.treasures.stock;
 
+import java.io.BufferedWriter;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -12,7 +17,6 @@ import java.util.List;
 import java.util.Set;
 
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 
 /** 股票 */
@@ -94,6 +98,18 @@ class Stock {
 		System.out.println("==========start mock==============");
 		Set<String> keys = transHistoryListMulitMap.keySet();
 		List<TransHistory> tempTransHistoryList;
+		List<String> list;
+		List<List<String>> listList = new ArrayList<>(1024);
+		List<String> titleList = Arrays.asList(new String[] { "股票编码", "买入日期", "买入A价格", "卖出日期", "卖出价格", "盈利比A", "补仓B日期",
+				"补仓B价格", "补仓B卖出日期", "补仓B卖出价格", "盈利比B", "补仓C买入日期", "补仓C买入价格", "补仓C卖出日期", "补仓C卖出价格", "盈利比C" });
+		listList.add(titleList);
+		StockTrans tempSt;
+		TransHistory tempBuyTh;
+		TransHistory tempSellTh;
+		NumberFormat nf = NumberFormat.getNumberInstance();
+		nf.setGroupingUsed(false);
+		nf.setMaximumFractionDigits(2);
+
 		for (String key : keys) {
 			Collection<TransHistory> transHistorys = transHistoryListMulitMap.get(key);
 			tempTransHistoryList = new ArrayList<TransHistory>(transHistorys.size());
@@ -115,21 +131,60 @@ class Stock {
 				Set<Integer> fanbaoIndexSet = stock.stockTransMulitMap.keySet();
 				for (int index : fanbaoIndexSet) {
 					System.out.println(String.format("stock.code:%1$s, fanbaoIndex:%2$d", stock.code, index));
-					int maxLength = index + 3 > stock.thLastest.length ? stock.thLastest.length : index + 3;
-					for (int i = index - 3; i < maxLength; i++) {
-						System.out.println(stock.thLastest[i]);
+//					int maxLength = index + 3 > stock.thLastest.length ? stock.thLastest.length : index + 3;
+//					for (int i = index - 3; i < maxLength; i++) {
+//						System.out.println(stock.thLastest[i]);
+//					}
+					list = new ArrayList<>(16);
+					Collection<StockTrans> sts = stock.stockTransMulitMap.get(index);
+					list.add(stock.code);
+					for (Iterator<StockTrans> itStockTrans = sts.iterator(); itStockTrans.hasNext();) {
+						tempSt = itStockTrans.next();
+						tempBuyTh = stock.thLastest[tempSt.tdBuy.tansDayIndex];
+						list.add(String.valueOf(tempBuyTh.date));
+						list.add(nf.format(tempSt.tdBuy.price));
+						if (tempSt.tdSell != null) {
+							tempSellTh = stock.thLastest[tempSt.tdSell.tansDayIndex];
+							list.add(String.valueOf(tempSellTh.date));
+							list.add(nf.format(tempSt.tdSell.price));
+							list.add(nf.format(tempSt.tdSell.price / tempSt.tdBuy.price));
+						} else {
+							list.add("");
+							list.add("0");
+							list.add("0");
+						}
 					}
-					System.out.println(stock.stockTransMulitMap.get(index));
+					if (sts.size() < 3) {
+						list.add("");
+						list.add("0");
+						list.add("");
+						list.add("0");
+						list.add("0");
+						if (sts.size() == 1) {
+							list.add("");
+							list.add("0");
+							list.add("");
+							list.add("0");
+							list.add("0");
+						}
+					}
+					listList.add(list);
 				}
 			}
 		}
+		new FileUtil().createCSVFile(listList, "/Users/yuguangjia/study", "test1.csv");
 		System.out.println("==========end mock==============");
+	}
+
+	static List<List<String>> buildCsvData() {
+
+		return null;
 	}
 
 	public static void main(String[] args) {
 		Stock stock = new Stock();
 		stock.mockBasicData();
-		for (int i = 2015; i < 2016; i++) {
+		for (int i = 2014; i < 2021; i++) {
 			for (int j = 1; j < 13; j++) {
 				if (i == 2020 && j > 10) {
 					break;
@@ -170,7 +225,7 @@ class TransDetail {
 class StockTrans {
 	String stockCode; // 股票代码
 	TransDetail tdBuy;// 买入详情
-	List<TransDetail> tdSell; // 卖出详情
+	TransDetail tdSell; // 卖出详情
 
 	StockTrans(String stockCode, TransDetail tdBuy) {
 		this.stockCode = stockCode;
@@ -408,14 +463,13 @@ class Rules {
 					if (st.tdSell == null && transDayIndex > st.tdBuy.tansDayIndex) {
 						// 如果前一天跌停，今早开盘及时卖出
 						if (isStockBottomLimit(s.thLastest[transDayIndex - 1])) {
-							st.tdSell = Lists.newArrayList(new TransDetail(s.thLastest[transDayIndex].prevClosePx, 100,
-									transDayIndex, "跌停后卖出"));
+							st.tdSell = new TransDetail(s.thLastest[transDayIndex].prevClosePx, 100, transDayIndex,
+									"跌停后卖出");
 
 						}
 						// （成交日+1 日收盘价）/ 成交日收盘价 < 1.0996 收盘时卖出
 						else if (s.thLastest[transDayIndex].lastPx < s.thLastest[transDayIndex - 1].lastPx * 1.0996) {
-							st.tdSell = Lists.newArrayList(
-									new TransDetail(s.thLastest[transDayIndex].lastPx, 100, transDayIndex, "卖出"));
+							st.tdSell = new TransDetail(s.thLastest[transDayIndex].lastPx, 100, transDayIndex, "卖出");
 						}
 					}
 				}
@@ -518,5 +572,101 @@ class Util {
 				| ((src[offset + 3] & 0xFF) << 24) | ((src[offset + 4] & 0xFF) << 32) | ((src[offset + 5] & 0xFF) << 40)
 				| ((src[offset + 6] & 0xFF) << 48) | ((src[offset + 7] & 0xFF) << 56));
 		return value;
+	}
+}
+
+class FileUtil {
+	/**
+	 * 生成为CVS文件
+	 *
+	 * @param exportData 源数据List
+	 * @param map        csv文件的列表头map
+	 * @param outPutPath 文件路径
+	 * @param fileName   文件名称
+	 * @return
+	 */
+	public File createCSVFile(List<List<String>> exportData, String outPutPath, String fileName) {
+		File csvFile = null;
+		BufferedWriter csvFileOutputStream = null;
+		try {
+			File file = new File(outPutPath);
+			if (!file.exists()) {
+				if (file.mkdirs()) {
+					System.out.println("创建成功");
+				} else {
+					System.out.println("创建失败");
+				}
+			}
+			// 定义文件名格式并创建
+			csvFile = File.createTempFile(fileName, ".csv", new File(outPutPath));
+			csvFileOutputStream = new BufferedWriter(
+					new OutputStreamWriter(new FileOutputStream(csvFile), StandardCharsets.UTF_8), 1024);
+			for (List<String> exportDatum : exportData) {
+				writeRow(exportDatum, csvFileOutputStream);
+				csvFileOutputStream.newLine();
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				if (csvFileOutputStream != null) {
+					csvFileOutputStream.close();
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		return csvFile;
+	}
+
+	/**
+	 * 写一行数据
+	 *
+	 * @param row       数据列表
+	 * @param csvWriter
+	 * @throws IOException
+	 */
+	private void writeRow(List<String> row, BufferedWriter csvWriter) throws IOException {
+		int i = 0;
+		for (String data : row) {
+			csvWriter.write(DelQuota(data));
+			if (i != row.size() - 1) {
+				csvWriter.write(",");
+			}
+			i++;
+		}
+	}
+
+	/**
+	 * 剔除特殊字符
+	 *
+	 * @param str 数据
+	 */
+	public String DelQuota(String str) {
+		String result = str;
+		String[] strQuota = { "~", "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "`", ";", "'", ",", "/", ":", "/,",
+				"<", ">", "?" };
+		for (int i = 0; i < strQuota.length; i++) {
+			if (result.indexOf(strQuota[i]) > -1)
+				result = result.replace(strQuota[i], "");
+		}
+		return result;
+	}
+
+	/**
+	 * 测试
+	 */
+	public static void main(String[] args) {
+		FileUtil csvUtils = new FileUtil();
+		List<List<String>> listList = new ArrayList<List<String>>();
+		List<String> list = null;
+		for (int i = 0; i < 5; i++) {
+			list = new ArrayList<String>();// 一个List为一行
+			list.add("测试");
+			list.add("测试");
+			list.add("测试");
+			listList.add(list);
+		}
+		csvUtils.createCSVFile(listList, "/Users/yuguangjia/study", "test.csv");
 	}
 }
