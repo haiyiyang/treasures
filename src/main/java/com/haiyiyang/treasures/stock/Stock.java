@@ -109,6 +109,7 @@ class Stock {
 			}
 			stock.thLastest = tempTransHistoryList.toArray(new TransHistory[tempTransHistoryList.size()]);
 			stock.code = key;
+			stock.stockTransMulitMap.clear();
 			Rules.mockStockTrans(stock);
 			if (stock.stockTransMulitMap.size() > 0) {
 				Set<Integer> fanbaoIndexSet = stock.stockTransMulitMap.keySet();
@@ -128,7 +129,7 @@ class Stock {
 	public static void main(String[] args) {
 		Stock stock = new Stock();
 		stock.mockBasicData();
-		for (int i = 2014; i < 2017; i++) {
+		for (int i = 2015; i < 2016; i++) {
 			for (int j = 1; j < 13; j++) {
 				if (i == 2020 && j > 10) {
 					break;
