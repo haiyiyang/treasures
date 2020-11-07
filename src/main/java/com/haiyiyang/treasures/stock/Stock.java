@@ -38,7 +38,6 @@ class Stock {
 	}
 
 	static void loadData(String fileName) {
-		System.out.println(fileName);
 		File file = new File(fileName);
 		FileInputStream in = null;
 		DataInputStream dis = null;
@@ -49,7 +48,6 @@ class Stock {
 				byte[] bs = new byte[12];
 				dis.read(bs, 0, 4);
 				int dataLength = Util.bytesToInt(bs, 0);
-				System.out.println("data length:" + dataLength);
 				fileIndexList.clear();
 				for (int i = 0; i < dataLength; i++) {
 					dis.read(bs, 0, 12);
@@ -92,31 +90,54 @@ class Stock {
 		}
 	}
 
+	static void startMock(Stock stock) {
+		System.out.println("==========start mock==============");
+		Set<String> keys = transHistoryListMulitMap.keySet();
+		List<TransHistory> tempTransHistoryList;
+		for (String key : keys) {
+			Collection<TransHistory> transHistorys = transHistoryListMulitMap.get(key);
+			tempTransHistoryList = new ArrayList<TransHistory>(transHistorys.size());
+			Iterator<TransHistory> it = transHistorys.iterator();
+			for (int k = 0; it.hasNext(); k++) {
+				TransHistory th = it.next();
+				if (k > 0 && tempTransHistoryList.get(k - 1).date == th.date
+						&& th.time > tempTransHistoryList.get(k - 1).time) {
+					tempTransHistoryList.set(--k, th);
+				} else {
+					tempTransHistoryList.add(th);
+				}
+			}
+			stock.thLastest = tempTransHistoryList.toArray(new TransHistory[tempTransHistoryList.size()]);
+			stock.code = key;
+			Rules.mockStockTrans(stock);
+		}
+		System.out.println("==========end mock==============");
+	}
+
 	public static void main(String[] args) {
 		Stock stock = new Stock();
 		stock.mockBasicData();
-		for (int i = 2014; i < 2015; i++) {
+		for (int i = 2014; i < 2021; i++) {
 			for (int j = 1; j < 13; j++) {
 				if (i == 2020 && j > 10) {
-					System.out.println("----------end----------");
 					break;
 				}
-				String filePath = String.format("/Users/yuguangjia/study/DayData/%1$d%2$02d.DAT", i, j);
-				loadData(filePath);
+				loadData(String.format("/Users/yuguangjia/study/DayData/%1$d%2$02d.DAT", i, j));
+			}
+			System.out.println("load data of year:" + i + " done.");
+		}
+		startMock(stock);
+		if (stock.stockTransMulitMap.size() > 0) {
+			Set<Integer> fanbaoIndexSet = stock.stockTransMulitMap.keySet();
+			for (int index : fanbaoIndexSet) {
+				System.out.println(String.format("stock.code:%1$s, fanbaoIndex:%2$d", stock.code, index));
+				int maxLength = index + 3 > stock.thLastest.length ? stock.thLastest.length : index + 3;
+				for (int i = index - 3; i < maxLength; i++) {
+					System.out.println(stock.thLastest[i]);
+				}
 			}
 		}
-		Set<String> keys = transHistoryListMulitMap.keySet();
-		for (String key : keys) {
-			stock.code = key;
-			Collection<TransHistory> transHistorys = transHistoryListMulitMap.get(key);
-			stock.thLastest = new TransHistory[transHistorys.size()];
-			int k = 0;
-			for (Iterator<TransHistory> it = transHistorys.iterator(); it.hasNext(); k++) {
-				stock.thLastest[k] = it.next();
-			}
-			Rules.mockStockTrans(stock);
-			System.out.println("stock:" + stock.stockTransMulitMap.size());
-		}
+		System.out.println("----------end----------");
 	}
 }
 
@@ -145,16 +166,18 @@ class TransDetail {
 
 /** 股票买卖交易 */
 class StockTrans {
+	String stockCode; // 股票代码
 	TransDetail tdBuy;// 买入详情
 	List<TransDetail> tdSell; // 卖出详情
 
-	StockTrans(TransDetail tdBuy) {
+	StockTrans(String stockCode, TransDetail tdBuy) {
+		this.stockCode = stockCode;
 		this.tdBuy = tdBuy;
 	}
 
 	@Override
 	public String toString() {
-		return "StockTrans [tdBuy=" + tdBuy + ", tdSell=" + tdSell + "]";
+		return "StockTrans [stockCode=" + stockCode + ", tdBuy=" + tdBuy + ", tdSell=" + tdSell + "]";
 	}
 
 }
@@ -170,7 +193,7 @@ class TransHistory {
 	double lastPx; // 收盘价
 	long totalVolumeTrade; // 成交量
 	double totalValueTrade; // 当日成交总金额
-	double volumeOfClosingPriceAndAbove; // 在成交价及以上的价格的成交量
+	double volumeOfClosingPriceAndAbove = 100000000000d; // 在成交价及以上的价格的成交量
 
 	// 设置数据
 	void setValues(byte[] src, int index) {
@@ -310,10 +333,13 @@ class Rules {
 	}
 
 	/** 判断是否满足反包规则 */
-	static boolean meetFanBaoRules(TransHistory thTiaozheng, TransHistory thFanbao) {
+	static boolean meetFanBaoRules(Stock s, int thIndex) {
+
+		TransHistory thLimitDay1 = s.thLastest[thIndex - 2], thLimitDay2 = s.thLastest[thIndex - 1],
+				thTiaozheng = s.thLastest[thIndex], thFanbao = s.thLastest[thIndex + 1];
 
 		// 判断是否连续两天涨停
-		if (!isStockLimit2Days(thTiaozheng, thFanbao)) {
+		if (!isStockLimit2Days(thLimitDay1, thLimitDay2)) {
 			return false;
 		}
 
@@ -361,7 +387,8 @@ class Rules {
 	/** 买入股票及补仓 */
 	static Boolean buyAndReplenish(int fanBaoIndex, Stock s, double buyPrice, int transDayIndex) {
 		if (!s.stockTransMulitMap.containsKey(fanBaoIndex)) {
-			s.stockTransMulitMap.put(fanBaoIndex, new StockTrans(new TransDetail(buyPrice, 100, transDayIndex, "买入")));
+			s.stockTransMulitMap.put(fanBaoIndex,
+					new StockTrans(s.code, new TransDetail(buyPrice, 100, transDayIndex, "买入")));
 			// 补仓逻辑
 			return replenish(fanBaoIndex, s, buyPrice, transDayIndex, false);
 		}
@@ -398,8 +425,8 @@ class Rules {
 	static boolean replenish(int fanBaoIndex, Stock s, double buyPrice, int transDayIndex, boolean hasBucang) {
 		double rPrice = hasBucang ? buyPrice * 0.88 : buyPrice * 0.95;
 		if (s.thLastest[transDayIndex].lowPx < rPrice) {
-			s.stockTransMulitMap.put(fanBaoIndex,
-					new StockTrans(new TransDetail(rPrice, 100, transDayIndex, "补仓" + (hasBucang ? "2" : "1"))));
+			s.stockTransMulitMap.put(fanBaoIndex, new StockTrans(s.code,
+					new TransDetail(rPrice, 100, transDayIndex, "补仓" + (hasBucang ? "2" : "1"))));
 			return true;
 		}
 		return false;
@@ -411,22 +438,36 @@ class Rules {
 		if (!meetThefundamentals(s)) {
 			return;
 		}
-
-		/** 1调整日，2反包日，3可能的成交日，4可能的成交日B,5可能的成交日 */
-		if (s.thLastest.length >= 5) {
+		int thLastestLength = s.thLastest.length;
+		/** 四天为最小的满足交易条件周期（1.涨停1，2.涨停2，3.调整日，4.反包日，5.成交日，6.卖出日) */
+		if (thLastestLength >= 6) {
+			if (s.thLastest[0] == null || s.thLastest[1] == null) {
+				// 历史数据中有重复数据
+				return;
+			}
 			int fanBaoIndex = -1;
-			int l = s.thLastest.length - 2;// 预留最小2个交易日用于买入和卖出(最小完整交易)
-			for (int i = 0; i < l; i++) {
+			// 预留最小2个交易日用于买入和卖出(最小完整交易)
+			int lastLoopIndex = s.thLastest.length - 3;
+			for (int thIndex = 2; thIndex < lastLoopIndex; thIndex++) {
+				// 历史数据中有重复数据, 数据清洗后有null值
+				if (s.thLastest[thIndex] == null || s.thLastest[thIndex + 1] == null || s.thLastest[thIndex + 2] == null
+						|| s.thLastest[thIndex + 3] == null) {
+					return;
+				}
 				// 不处理3个可能成交的交易日
-				if (fanBaoIndex > -1 && i <= fanBaoIndex + 3) {
+				if (fanBaoIndex > -1 && thIndex <= fanBaoIndex + 3) {
 					continue;
 				}
-				if (meetFanBaoRules(s.thLastest[i], s.thLastest[i + 1])) {
-					fanBaoIndex = i + 1;
-					double buyPrice = caculateBuyPrice(s.thLastest[i], s.thLastest[i + 1]);
+				if (meetFanBaoRules(s, thIndex)) {
+					fanBaoIndex = thIndex + 1;
+					double buyPrice = caculateBuyPrice(s.thLastest[thIndex], s.thLastest[thIndex + 1]);
 					// 处理3个可能成交的交易日
 					for (int j = 1; j <= 3; j++) {
-						int transDayIndex = i + 1 + j;
+						int transDayIndex = thIndex + 1 + j;
+						// 历史数据中有重复数据, 数据清洗后有null值
+						if (transDayIndex >= thLastestLength || s.thLastest[transDayIndex] == null) {
+							break;
+						}
 						if (meetBuyRule(s.thLastest[transDayIndex], buyPrice)) {
 							boolean hasBucang = buyAndReplenish(fanBaoIndex, s, buyPrice, transDayIndex);
 							if (transDayIndex == fanBaoIndex + 2) {
@@ -441,8 +482,10 @@ class Rules {
 						}
 					}
 				}
-				// 卖出逻辑
-				sell(fanBaoIndex, s, i);
+				if (thIndex > 2) {
+					// 卖出逻辑
+					sell(fanBaoIndex, s, thIndex);
+				}
 			}
 		}
 	}
