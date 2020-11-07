@@ -449,6 +449,9 @@ class Rules {
 			// 补仓逻辑
 			replenish(fanBaoIndex, s, buyPrice, transDayIndex, 1);
 		}
+		if (s.stockTransMulitMap.get(fanBaoIndex).iterator().next().tdSell != null) {
+			return -1;
+		}
 		return s.stockTransMulitMap.get(fanBaoIndex).size();
 	}
 
@@ -650,22 +653,5 @@ class FileUtil {
 				result = result.replace(strQuota[i], "");
 		}
 		return result;
-	}
-
-	/**
-	 * 测试
-	 */
-	public static void main(String[] args) {
-		FileUtil csvUtils = new FileUtil();
-		List<List<String>> listList = new ArrayList<List<String>>();
-		List<String> list = null;
-		for (int i = 0; i < 5; i++) {
-			list = new ArrayList<String>();// 一个List为一行
-			list.add("测试");
-			list.add("测试");
-			list.add("测试");
-			listList.add(list);
-		}
-		csvUtils.createCSVFile(listList, "/Users/yuguangjia/study", "test.csv");
 	}
 }
