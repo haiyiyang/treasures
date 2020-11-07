@@ -360,7 +360,7 @@ class Rules {
 
 	/** 判断价格回落幅度是否在范围内 */
 	static boolean withinFellRange(TransHistory th) {
-		return (th.highPx / th.lastPx > 1.04);
+		return (th.highPx / th.lastPx > 1.04d);
 	}
 
 	/** 成交价及以上的价格的成交数量比例是否满足条件 */
@@ -468,7 +468,7 @@ class Rules {
 
 						}
 						// （成交日+1 日收盘价）/ 成交日收盘价 < 1.0996 收盘时卖出
-						else if (s.thLastest[transDayIndex].lastPx < s.thLastest[transDayIndex - 1].lastPx * 1.0996) {
+						else if (s.thLastest[transDayIndex].lastPx < s.thLastest[transDayIndex].prevClosePx * 1.0996d) {
 							st.tdSell = new TransDetail(s.thLastest[transDayIndex].lastPx, 100, transDayIndex, "卖出");
 						}
 					}
@@ -479,7 +479,7 @@ class Rules {
 
 	/** 股票补仓 */
 	static int replenish(int fanBaoIndex, Stock s, double buyPrice, int transDayIndex, int buyCount) {
-		double rPrice = buyCount > 1 ? buyPrice * 0.88 : buyPrice * 0.95;
+		double rPrice = buyCount > 1 ? buyPrice * 0.88d : buyPrice * 0.95d;
 		if (s.thLastest[transDayIndex].lowPx < rPrice) {
 			s.stockTransMulitMap.put(fanBaoIndex, new StockTrans(s.code,
 					new TransDetail(rPrice, 100, transDayIndex, "补仓" + (buyCount > 1 ? "2" : "1"))));
@@ -533,9 +533,8 @@ class Rules {
 							}
 						}
 					}
-					fanBaoIndex = -1;
 				}
-				if (thIndex > 4) {
+				if (fanBaoIndex > -1 && thIndex > 4) {
 					// 卖出逻辑
 					sell(fanBaoIndex, s, thIndex);
 				}
