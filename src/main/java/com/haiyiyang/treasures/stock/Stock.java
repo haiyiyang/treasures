@@ -185,7 +185,7 @@ class Stock {
 	public static void main(String[] args) {
 		Stock stock = new Stock();
 		stock.mockBasicData();
-		for (int i = 2018; i < 2020; i++) {
+		for (int i = 2014; i < 2021; i++) {
 			for (int j = 1; j < 13; j++) {
 				if (i == 2020 && j > 10) {
 					break;
