@@ -110,7 +110,7 @@ class Stock {
 		TransHistory tempSellTh;
 		NumberFormat nf = NumberFormat.getNumberInstance();
 		nf.setGroupingUsed(false);
-		nf.setMaximumFractionDigits(2);
+		nf.setMaximumFractionDigits(4);
 
 		for (String key : keys) {
 			Collection<TransHistory> transHistorys = transHistoryListMulitMap.get(key);
@@ -664,7 +664,7 @@ class Math {
 
 	// 除法运算默认精度
 
-	private static final int DEF_DIV_SCALE = 2;
+	private static final int DEF_DIV_SCALE = 4;
 
 	private Math() {
 
