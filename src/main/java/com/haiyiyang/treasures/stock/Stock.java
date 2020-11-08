@@ -7,6 +7,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.text.NumberFormat;
 import java.util.ArrayList;
@@ -100,7 +102,7 @@ class Stock {
 		List<TransHistory> tempTransHistoryList;
 		List<String> list;
 		List<List<String>> listList = new ArrayList<>(1024);
-		List<String> titleList = Arrays.asList(new String[] { "股票编码", "买入日期", "买入A价格", "卖出日期", "卖出价格", "盈利比A", "补仓B日期",
+		List<String> titleList = Arrays.asList(new String[] { "股票编码", "买入日期A", "买入价格A", "卖出日期", "卖出价格", "盈利比A", "补仓B日期",
 				"补仓B价格", "补仓B卖出日期", "补仓B卖出价格", "盈利比B", "补仓C买入日期", "补仓C买入价格", "补仓C卖出日期", "补仓C卖出价格", "盈利比C" });
 		listList.add(titleList);
 		StockTrans tempSt;
@@ -131,10 +133,10 @@ class Stock {
 				Set<Integer> fanbaoIndexSet = stock.stockTransMulitMap.keySet();
 				for (int index : fanbaoIndexSet) {
 					System.out.println(String.format("stock.code:%1$s, fanbaoIndex:%2$d", stock.code, index));
-//					int maxLength = index + 3 > stock.thLastest.length ? stock.thLastest.length : index + 3;
-//					for (int i = index - 3; i < maxLength; i++) {
-//						System.out.println(stock.thLastest[i]);
-//					}
+					int maxLength = index + 3 > stock.thLastest.length ? stock.thLastest.length : index + 3;
+					for (int i = index - 3; i < maxLength; i++) {
+						System.out.println(stock.thLastest[i]);
+					}
 					list = new ArrayList<>(16);
 					Collection<StockTrans> sts = stock.stockTransMulitMap.get(index);
 					list.add(stock.code);
@@ -147,7 +149,7 @@ class Stock {
 							tempSellTh = stock.thLastest[tempSt.tdSell.tansDayIndex];
 							list.add(String.valueOf(tempSellTh.date));
 							list.add(nf.format(tempSt.tdSell.price));
-							list.add(nf.format(tempSt.tdSell.price / tempSt.tdBuy.price));
+							list.add(nf.format(Math.div(tempSt.tdSell.price, tempSt.tdBuy.price)));
 						} else {
 							list.add("");
 							list.add("0");
@@ -184,7 +186,7 @@ class Stock {
 	public static void main(String[] args) {
 		Stock stock = new Stock();
 		stock.mockBasicData();
-		for (int i = 2014; i < 2021; i++) {
+		for (int i = 2020; i < 2021; i++) {
 			for (int j = 1; j < 13; j++) {
 				if (i == 2020 && j > 10) {
 					break;
@@ -259,28 +261,26 @@ class TransHistory {
 		} else if (index == 1) {
 			this.time = Util.bytesToInt(src, 0);
 		} else if (index == 2) {
-			this.prevClosePx = ((double) Util.bytesToInt(src, 0)) / 1000;
+			this.prevClosePx = Math.div((double) Util.bytesToInt(src, 0), 1000d);
 		} else if (index == 3) {
-			this.openPx = ((double) Util.bytesToInt(src, 0)) / 1000;
+			this.openPx = Math.div((double) Util.bytesToInt(src, 0), 1000d);
 		} else if (index == 4) {
-			this.highPx = ((double) Util.bytesToInt(src, 0)) / 1000;
+			this.highPx = Math.div((double) Util.bytesToInt(src, 0), 1000d);
 		} else if (index == 5) {
-			this.lowPx = ((double) Util.bytesToInt(src, 0)) / 1000;
+			this.lowPx = Math.div((double) Util.bytesToInt(src, 0), 1000d);
 		} else if (index == 6) {
-			this.lastPx = ((double) Util.bytesToInt(src, 0)) / 1000;
+			this.lastPx = Math.div((double) Util.bytesToInt(src, 0), 1000d);
 		} else if (index == 7) {
 			this.totalVolumeTrade = Util.bytesToLong(src, 0);
 		} else if (index == 8) {
-			this.totalValueTrade = ((double) Util.bytesToInt(src, 0)) / 1000;
+			this.totalValueTrade = Math.div((double) Util.bytesToInt(src, 0), 1000d);
 		}
 	}
 
 	@Override
 	public String toString() {
 		return "TransHistory [date=" + date + ", time=" + time + ", prevClosePx=" + prevClosePx + ", openPx=" + openPx
-				+ ", highPx=" + highPx + ", lowPx=" + lowPx + ", lastPx=" + lastPx + ", totalVolumeTrade="
-				+ totalVolumeTrade + ", totalValueTrade=" + totalValueTrade + ", volumeOfClosingPriceAndAbove="
-				+ volumeOfClosingPriceAndAbove + "]";
+				+ ", highPx=" + highPx + ", lowPx=" + lowPx + ", lastPx=" + lastPx + "]";
 	}
 
 }
@@ -332,12 +332,12 @@ class Rules {
 
 	/** 判断是否涨停 */
 	static boolean isStockTopLimit(TransHistory th) {
-		return isWinthinTopLimit(th.lastPx / th.prevClosePx);
+		return isWinthinTopLimit(Math.div(th.lastPx, th.prevClosePx));
 	}
 
 	/** 判断是否跌停 */
 	static boolean isStockBottomLimit(TransHistory th) {
-		return isWinthinBottomLimit(th.lastPx / th.prevClosePx);
+		return isWinthinBottomLimit(Math.div(th.lastPx, th.prevClosePx));
 	}
 
 	/** 判断是否连续两天涨停 */
@@ -348,42 +348,43 @@ class Rules {
 
 	/** 判断最高价是否到达过涨停的价格区间范围内 */
 	static boolean hasMaxPriceReachedStockLimit(TransHistory th) {
-		return isWinthinTopLimit(th.highPx / th.prevClosePx); // 判断最高价是否到达过涨停的价格区间范围内
+		return isWinthinTopLimit(Math.div(th.highPx, th.prevClosePx)); // 判断最高价是否到达过涨停的价格区间范围内
 
 	}
 
 	/** 最高价出现过在涨停价格区间范围内，但收盘价不在涨停价格区间范围内 */
 	static boolean existsPricesPeakedAndFinallyFell(TransHistory th) {
-		return isWinthinTopLimit(th.highPx / th.prevClosePx) // 最高价出现过在涨停价格区间范围内
-				&& !isWinthinTopLimit(th.lastPx / th.prevClosePx); // 收盘价不在涨停价格区间范围内
+		return isWinthinTopLimit(Math.div(th.highPx, th.prevClosePx)) // 最高价出现过在涨停价格区间范围内
+				&& !isWinthinTopLimit(Math.div(th.lastPx, th.prevClosePx)); // 收盘价不在涨停价格区间范围内
 	}
 
 	/** 判断价格回落幅度是否在范围内 */
 	static boolean withinFellRange(TransHistory th) {
-		return (th.highPx / th.lastPx > 1.04d);
+		return (Math.div(th.highPx, th.lastPx) > 1.04d);
 	}
 
 	/** 成交价及以上的价格的成交数量比例是否满足条件 */
 	static boolean meetHighPriceTransRatio(TransHistory th) {
-		return th.volumeOfClosingPriceAndAbove / th.totalVolumeTrade > 0.3d;
+		return Math.div(th.volumeOfClosingPriceAndAbove, th.totalVolumeTrade) > 0.3d;
 
 	}
 
 	/** 判断是否满足反包规则中的价格要求 */
-	static boolean meetFanBaoPriceRules(TransHistory th, TransHistory thTiaozheng) {
+	static boolean meetFanBaoPriceRules(TransHistory thTiaozheng, TransHistory thFanbao, TransHistory thMayBuyDay1) {
 
 		/** ------------------以下3个规则满足其中之一即可-------------------- */
 
 		// 【N+1 日收盘价>N 日最高价*98%】
-		if (th.lastPx > thTiaozheng.highPx * 0.98d) {
+		if (thMayBuyDay1.prevClosePx > Math.mul(thTiaozheng.highPx, 0.98d)) {
 			return true;
 		}
 		// 【（N+1 日最高价>N 日最高价）and（N+1日收盘价>N 日收盘价）】
-		if (th.highPx > thTiaozheng.highPx && th.lastPx > thTiaozheng.lastPx) {
+		if (thFanbao.highPx > thTiaozheng.highPx && thMayBuyDay1.prevClosePx > thFanbao.prevClosePx) {
 			return true;
 		}
 		// 【（N+1 日最高价>N 日最高价*99%）and（N+1 日收盘价>N+1 日开盘价*1.02）】
-		if (th.highPx > thTiaozheng.highPx * 0.99d && th.lastPx > th.prevClosePx * 1.02d) {
+		if (thFanbao.highPx > Math.mul(thTiaozheng.highPx, 0.99d)
+				&& thMayBuyDay1.prevClosePx > Math.mul(thFanbao.openPx, 1.02d)) {
 			return true;
 		}
 		return false;
@@ -393,7 +394,8 @@ class Rules {
 	static boolean meetFanBaoRules(Stock s, int thIndex) {
 
 		TransHistory thLimitDay1 = s.thLastest[thIndex - 2], thLimitDay2 = s.thLastest[thIndex - 1],
-				thTiaozheng = s.thLastest[thIndex], thFanbao = s.thLastest[thIndex + 1];
+				thTiaozheng = s.thLastest[thIndex], thFanbao = s.thLastest[thIndex + 1],
+				thMayBuyDay1 = s.thLastest[thIndex + 2];
 
 		// 判断是否连续两天涨停
 		if (!isStockLimit2Days(thLimitDay1, thLimitDay2)) {
@@ -425,7 +427,7 @@ class Rules {
 		}
 
 		// 判断是否满足反包规则中价格要求
-		if (meetFanBaoPriceRules(thFanbao, thTiaozheng)) {
+		if (meetFanBaoPriceRules(thTiaozheng, thFanbao, thMayBuyDay1)) {
 			return false;
 		}
 		return true;
@@ -433,7 +435,8 @@ class Rules {
 
 	/** 计算买入价格 */
 	static double caculateBuyPrice(TransHistory thTiaozheng, TransHistory thFanbao) {
-		return thTiaozheng.lowPx <= thFanbao.lowPx ? thTiaozheng.lowPx * 1.02d : thFanbao.lowPx * 1.02d;
+		return thTiaozheng.lowPx <= thFanbao.lowPx ? Math.mul(thTiaozheng.lowPx, 1.02d)
+				: Math.mul(thFanbao.lowPx, 1.02d);
 	}
 
 	/** 计算是否能买入 */
@@ -471,7 +474,8 @@ class Rules {
 
 						}
 						// （成交日+1 日收盘价）/ 成交日收盘价 < 1.0996 收盘时卖出
-						else if (s.thLastest[transDayIndex].lastPx < s.thLastest[transDayIndex].prevClosePx * 1.0996d) {
+						else if (s.thLastest[transDayIndex].lastPx < Math.mul(s.thLastest[transDayIndex].prevClosePx,
+								1.0996d)) {
 							st.tdSell = new TransDetail(s.thLastest[transDayIndex].lastPx, 100, transDayIndex, "卖出");
 						}
 					}
@@ -482,7 +486,7 @@ class Rules {
 
 	/** 股票补仓 */
 	static int replenish(int fanBaoIndex, Stock s, double buyPrice, int transDayIndex, int buyCount) {
-		double rPrice = buyCount > 1 ? buyPrice * 0.88d : buyPrice * 0.95d;
+		double rPrice = buyCount > 1 ? Math.mul(buyPrice, 0.88d) : Math.mul(buyPrice, 0.95d);
 		if (s.thLastest[transDayIndex].lowPx < rPrice) {
 			s.stockTransMulitMap.put(fanBaoIndex, new StockTrans(s.code,
 					new TransDetail(rPrice, 100, transDayIndex, "补仓" + (buyCount > 1 ? "2" : "1"))));
@@ -654,4 +658,70 @@ class FileUtil {
 		}
 		return result;
 	}
+}
+
+class Math {
+
+	// 除法运算默认精度
+
+	private static final int DEF_DIV_SCALE = 2;
+
+	private Math() {
+
+	}
+
+	/**
+	 * 精确加法
+	 */
+	public static double add(double value1, double value2) {
+		BigDecimal b1 = BigDecimal.valueOf(value1);
+		BigDecimal b2 = BigDecimal.valueOf(value2);
+		return b1.add(b2).doubleValue();
+	}
+
+	/**
+	 * 精确减法
+	 */
+	public static double sub(double value1, double value2) {
+		BigDecimal b1 = BigDecimal.valueOf(value1);
+		BigDecimal b2 = BigDecimal.valueOf(value2);
+		return b1.subtract(b2).doubleValue();
+	}
+
+	/**
+	 * 精确乘法
+	 */
+	public static double mul(double value1, double value2) {
+		BigDecimal b1 = BigDecimal.valueOf(value1);
+		BigDecimal b2 = BigDecimal.valueOf(value2);
+		return b1.multiply(b2).doubleValue();
+	}
+
+	/**
+	 * 精确除法 使用默认精度
+	 */
+	public static double div(double value1, double value2) {
+		return div(value1, value2, DEF_DIV_SCALE);
+	}
+
+	/**
+	 * 精确除法
+	 *
+	 * @param scale 精度
+	 */
+	public static double div(double value1, double value2, int scale) {
+		BigDecimal b1 = BigDecimal.valueOf(value1);
+		BigDecimal b2 = BigDecimal.valueOf(value2);
+		return b1.divide(b2, scale, RoundingMode.HALF_UP).doubleValue();
+	}
+
+	/**
+	 * 四舍五入
+	 * 
+	 * @param scale 小数点后保留几位
+	 */
+	public static double round(double v, int scale) {
+		return div(v, 1, scale);
+	}
+
 }
