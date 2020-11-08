@@ -185,7 +185,7 @@ class Stock {
 	public static void main(String[] args) {
 		Stock stock = new Stock();
 		stock.mockBasicData();
-		for (int i = 2020; i < 2021; i++) {
+		for (int i = 2018; i < 2020; i++) {
 			for (int j = 1; j < 13; j++) {
 				if (i == 2020 && j > 10) {
 					break;
@@ -261,6 +261,9 @@ class TransHistory {
 			this.time = Util.bytesToInt(src, 0);
 		} else if (index == 2) {
 			this.prevClosePx = Math.div((double) Util.bytesToInt(src, 0), 1000d);
+			if (this.prevClosePx == 0) {
+				this.prevClosePx = 0.01d;// 错误数据兼容处理
+			}
 		} else if (index == 3) {
 			this.openPx = Math.div((double) Util.bytesToInt(src, 0), 1000d);
 		} else if (index == 4) {
@@ -269,6 +272,9 @@ class TransHistory {
 			this.lowPx = Math.div((double) Util.bytesToInt(src, 0), 1000d);
 		} else if (index == 6) {
 			this.lastPx = Math.div((double) Util.bytesToInt(src, 0), 1000d);
+			if (this.lastPx == 0) {
+				this.lastPx = 0.01d;// 错误数据兼容处理
+			}
 		} else if (index == 7) {
 			this.totalVolumeTrade = Util.bytesToLong(src, 0);
 		} else if (index == 8) {
@@ -493,9 +499,6 @@ class Rules {
 	}
 
 	static void mockStockTrans(Stock s) {
-		if (s.code.equals("300712_SZ")) {
-			System.out.print("-----");
-		}
 		// 判断某只股票是否满足基本面要求
 		if (!meetThefundamentals(s)) {
 			return;
