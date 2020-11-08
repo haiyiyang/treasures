@@ -111,7 +111,6 @@ class Stock {
 		NumberFormat nf = NumberFormat.getNumberInstance();
 		nf.setGroupingUsed(false);
 		nf.setMaximumFractionDigits(4);
-
 		for (String key : keys) {
 			Collection<TransHistory> transHistorys = transHistoryListMulitMap.get(key);
 			tempTransHistoryList = new ArrayList<TransHistory>(transHistorys.size());
@@ -392,7 +391,6 @@ class Rules {
 
 	/** 判断是否满足反包规则 */
 	static boolean meetFanBaoRules(Stock s, int thIndex) {
-
 		TransHistory thLimitDay1 = s.thLastest[thIndex - 2], thLimitDay2 = s.thLastest[thIndex - 1],
 				thTiaozheng = s.thLastest[thIndex], thFanbao = s.thLastest[thIndex + 1],
 				thMayBuyDay1 = s.thLastest[thIndex + 2];
@@ -427,7 +425,7 @@ class Rules {
 		}
 
 		// 判断是否满足反包规则中价格要求
-		if (meetFanBaoPriceRules(thTiaozheng, thFanbao, thMayBuyDay1)) {
+		if (!meetFanBaoPriceRules(thTiaozheng, thFanbao, thMayBuyDay1)) {
 			return false;
 		}
 		return true;
@@ -495,7 +493,9 @@ class Rules {
 	}
 
 	static void mockStockTrans(Stock s) {
-
+		if (s.code.equals("300712_SZ")) {
+			System.out.print("-----");
+		}
 		// 判断某只股票是否满足基本面要求
 		if (!meetThefundamentals(s)) {
 			return;
